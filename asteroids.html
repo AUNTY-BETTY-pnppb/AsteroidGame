@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Asteroids</title>
+        <link rel="stylesheet" href="asteroids.css">
+        <script>
+            let canvas;
+let context;
+let width;
+let height;
+
+let interval_id;
+
+let ps = [];
+
+let player = {
+    x : 0,
+    y : 150,
+    size : 15,
+};
+
+let gun = false;
+let shoot = []
+
+let moveRight = false;
+let moveUp = false;
+let moveDown = false;
+let moveLeft = false;
+
+let dashC = false;
+let speed = 3;
+let dashTimeout = 0;
+
+let points = 0;
+
+document.addEventListener('DOMContentLoaded', init, false);
+
+function init() {
+    canvas = document.querySelector('canvas');
+    context = canvas.getContext('2d');
+    width = canvas.width;
+    height = canvas.height;
+    window.addEventListener('keydown', activate, false);
+    window.addEventListener('keyup', deactivate, false);
+    interval_id = window.setInterval(draw, 15);
+    let body_element = document.querySelector('body');
+}
+
+
+function updatePoints(delta){
+    points += delta;
+    console.log(points)
+    let scorekeeper = document.querySelector("#points")
+    scorekeeper.innerHTML = `Score: ${points}`;
+}
+function activate(event){
+    let keyCode = event.keyCode;
+    if (keyCode === 88) {
+        gun = true;
+        let bullet = {
+            x : player.x + 11,
+            y : player.y + 5.5,
+            bullTrack : 10,
+            size : 5,
+        }
+        shoot.push(bullet)
+    }
+    if (keyCode === 67) {
+        dashC = true;
+    }
+    if (keyCode === 38) {
+        moveUp = true;
+    }
+    if (keyCode === 39) {
+        moveRight = true;
+    }
+    if (keyCode === 40) {
+        moveDown = true;
+    }
+    if (keyCode === 37) {
+        moveLeft = true;
+    }
+}
+
+function deactivate(event) {
+    let keyCode = event.keyCode;
+    if (keyCode === 88) {
+        gun = false;
+    }
+    if (keyCode === 67) {
+        dashC = false;
+    }
+    if (keyCode === 38) {
+        moveUp = false;
+    }
+    if (keyCode === 39) {
+        moveRight = false;
+    }
+    if (keyCode === 40) {
+        moveDown = false;
+    }
+    if (keyCode === 37) {
+        moveLeft = false;
+    }
+}
+
+function border_patrol() {
+    if (player.x <= 0) {
+        moveLeft = false;
+        player.x = 0;
+    }
+    if (player.x + player.size >= width) {
+        moveRight = false;
+    }
+    if (player.y <= 0) {
+        moveUp = false;
+        player.y = 0;
+    }
+    if (player.y + player.size >= height) {
+        moveDown = false;
+        player.y = 550 - 15;
+    }
+}
+
+function draw() {
+    // meteor shower
+    if (ps.length < 30) {
+        let p = {
+            x : width,
+            y : getRandomNumber(0, height - 10),
+            size : getRandomNumber(6, 16),
+            xChange : getRandomNumber(-10, -1),
+            yChange : 0
+        };
+        ps.push(p);
+    }
+    context.clearRect(0, 0, width, height);
+    context.fillStyle = 'yellow';
+    for (let p of ps) {
+        context.fillRect(p.x, p.y, p.size, p.size);
+    }
+
+    // player
+    context.fillStyle ='cyan';
+    context.fillRect(player.x, player.y, player.size, player.size);
+    if (player.x + player.size >= width) {
+        player.x = 0 
+        updatePoints(100);
+    }
+
+    // you got hit
+    for (let p of ps) {
+        if (collides(p)) {
+            stop();
+            window.alert("YOU GOT HIT! Your total points is " + points.toString());
+            return;
+        }
+    }
+
+    // the meteor "moving"
+    for (let p of ps) {
+        p.x = p.x + p.xChange;
+        p.y = p.y + p.yChange;
+        if (p.x <= -p.size) {
+            p.x = width;
+            p.y = getRandomNumber(0, height);
+        }
+    }
+
+    // bullet "moving"
+    for (let g of shoot) {
+        context.fillRect(g.x, g.y, g.size, g.size);
+        g.x = g.x + g.bullTrack;
+    }
+
+    // bullet hits meteor
+    for (let p of ps) {
+      for (let g of shoot) {
+        if (hitscan(p, g)) {
+          p.x = width;
+          p.y = getRandomNumber(0, height);
+          updatePoints(10);
+          let index = shoot.indexOf(g)
+          shoot.splice(index, 1);
+        }
+      }
+    }
+
+    // player hits sides
+    border_patrol()
+
+    // teleports player to spot
+    if (dashC && dashTimeout <= 0){
+        speed = 100;
+        dashTimeout = 1000;
+        console.log("fast as fuck boi");
+
+    }
+    else if (dashTimeout > 0){
+        dashTimeout -= 20;
+        speed = 3;
+    }
+
+    // movement registers
+    if (moveRight) {
+        player.x += speed;
+    }
+    if (moveLeft) {
+        player.x -= speed;
+    }
+    if (moveUp) {
+        player.y -= speed;
+    }
+    if (moveDown) {
+        player.y += speed;
+    }
+}
+
+function getRandomNumber(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function hitscan(p, g) {
+  if (g.x + g.size < p.x ||
+      p.x + p.size < g.x ||
+      g.y > p.y + p.size ||
+      p.y > g.y + g.size) {
+        return false;
+      } else {
+        return true;
+      }
+}
+
+function collides(p) {
+    if (player.x + player.size < p.x ||
+        p.x + p.size < player.x ||
+        player.y > p.y + p.size ||
+        p.y > player.y + player.size) {
+        return false;
+    } else {
+        return true;
+    }
+}
+
+function stop() {
+    clearInterval(interval_id);
+    window.removeEventListener('keydown', activate);
+    window.removeEventListener('keyup', deactivate);
+}
+</script>
+    </head>
+    <body>
+        <canvas width="1000" height="550">
+        </canvas>
+        <p>Use Arrow Keys to move</p>
+        <p>Press x to shoot</p>
+        <p>Press c to blink around</p>
+        <p id="points">Score:</p>
+    </body>
+</html>
